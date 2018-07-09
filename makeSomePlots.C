@@ -242,7 +242,8 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, s
 
   TCanvas *c2 = new TCanvas("c2");
   hDeltaT->Draw("e");
-  hDeltaT->Fit("gaus");
+  TF1 *func = new TF1("func", "gaus");
+  hDeltaT->Fit(func);
 
 
   string outputc2 = basename+"_c2";
@@ -255,6 +256,19 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, s
   fout->Close();
   cout << outputname << endl;
 
+  ofstream myfile;
+  myfile.open (Form("%s.txt", basename.c_str()));
+  myfile << "Summary output for bar " << barname << "\n";
+  myfile << "PMT A : " << whichPMT[0] << " with gain " << gains[0] << "\n";
+  myfile << "PMT B : " << whichPMT[1] << " with gain " << gains[1] << "\n";
+  myfile << "Triggering on " << trigChan << " with threshold -" << thresh << "\n";
+  myfile << "Acquisition time source and cosmics: \n";
+  myfile << deltaTsource << " " << deltaTnoise << "\n";
+  myfile << "Timing resolution mean and RMS: \n";
+  myfile << func->GetParameter(1) << " " << func->GetParError(1) << " " << func->GetParameter(2) << " " << func->GetParError(2) << "\n";
+  myfile << "Photo-electrons mean and RMS for PMT A and B: \n";
+  myfile << hDifference1->GetMean() << " " << hDifference1->GetRMS() << " " << hDifference2->GetMean() << " " << hDifference2->GetRMS() << "\n";
+  myfile.close();
 
   delete hPeak1;
   delete hPeak2;
