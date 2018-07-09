@@ -47,14 +47,14 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, s
 
   TH1D *hPeak1 = new TH1D ("hPeak1", "", 50, 0, 0.2);
   TH1D *hPeak2 = new TH1D ("hPeak2", "", 50, 0, 0.2);
-  TH1D *hIntegral1 = new TH1D ("hIntegral1", "", 100, 0, 40);
-  TH1D *hIntegral2 = new TH1D ("hIntegral2", "", 100, 0, 40);
-  TH1D *hDifference1 = new TH1D ("hDifference1", "", 100, 0, 40);
-  TH1D *hDifference2 = new TH1D ("hDifference2", "", 100, 0, 40);
+  TH1D *hIntegral1 = new TH1D ("hIntegral1", "", 100, 0, 300);
+  TH1D *hIntegral2 = new TH1D ("hIntegral2", "", 100, 0, 300);
+  TH1D *hDifference1 = new TH1D ("hDifference1", "", 100, 0, 300);
+  TH1D *hDifference2 = new TH1D ("hDifference2", "", 100, 0, 300);
   TH1D *hPeakNoise1 = new TH1D ("hPeakNoise1", "", 50, 0, 0.2);
   TH1D *hPeakNoise2 = new TH1D ("hPeakNoise2", "", 50, 0, 0.2);
-  TH1D *hIntegralNoise1 = new TH1D ("hIntegralNoise1", "", 100, 0, 40);
-  TH1D *hIntegralNoise2 = new TH1D ("hIntegralNoise2", "", 100, 0, 40);
+  TH1D *hIntegralNoise1 = new TH1D ("hIntegralNoise1", "", 100, 0, 300);
+  TH1D *hIntegralNoise2 = new TH1D ("hIntegralNoise2", "", 100, 0, 300);
   TH1D *hDeltaT = new TH1D ("hDeltaT", "", 50, -2e-8, 2e-8);
 
 
@@ -90,21 +90,16 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, s
      hPeak2->Fill(TMath::Abs(min2));
 
      numPhotoEle1 = integral1/(gains[0]*R*electron);
-     numPhotoEle2 = integral2/(gains[0]*R*electron);
-
-     //     cout << 
-     // integral1 = g1->Integral();
-     // integral2 = g2->Integral();
+     numPhotoEle2 = integral2/(gains[1]*R*electron);
+     
      integral1 = getIntegralFromHisto(g1);
      integral2 = getIntegralFromHisto(g2);
-     hIntegral1->Fill(integral1);
-     hIntegral2->Fill(integral2);
-     hDifference1->Fill(integral1);
-     hDifference2->Fill(integral2);
+     hIntegral1->Fill(numPhotoEle1);
+     hIntegral2->Fill(numPhotoEle2);
+     hDifference1->Fill(numPhotoEle1);
+     hDifference2->Fill(numPhotoEle2);
 
-     // cout << integral1 << " " << getIntegralFromHisto(g1) << endl;
-     // cout << integral2 << " " << getIntegralFromHisto(g2) << endl;
-
+ 
      TGraph *gCor = FFTtools::getCorrelationGraph(g1, g2);
      double *x = gCor->GetX();
      double *y = gCor->GetY();
@@ -137,8 +132,11 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, s
 
     integralNoise1 = getIntegralFromHisto(g1n);
     integralNoise2 = getIntegralFromHisto(g2n);
-    hIntegralNoise1->Fill(integralNoise1);
-    hIntegralNoise2->Fill(integralNoise2);
+    numPhotoEle1 = integralNoise1/(gains[0]*R*electron);
+    numPhotoEle2 = integralNoise2/(gains[1]*R*electron);
+
+    hIntegralNoise1->Fill(numPhotoEle1);
+    hIntegralNoise2->Fill(numPhotoEle2);
 
     delete g1n;
     delete g2n;
@@ -168,8 +166,8 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, s
   hDifference2->Add(hIntegralNoise2, -1);
 
 
-  hIntegral1->SetTitle(Form("Channel 2: %s", titleStr.c_str()));
-  hIntegral2->SetTitle(Form("Channel 3: %s", titleStr.c_str()));
+  hIntegral1->SetTitle(Form("Channel 2: %s;p.e.;Entries", titleStr.c_str()));
+  hIntegral2->SetTitle(Form("Channel 3: %s;p.e.;Entries", titleStr.c_str()));
 
   hIntegral1->SetLineWidth(2);
   hIntegral1->SetFillStyle(3003);
@@ -309,7 +307,7 @@ double getIntegralFromHisto(TGraph *g){
     h->Fill(x[i], -y[i]);
   }
 
-  integral = h->Integral();
+  integral = h->Integral("width");
   
   delete h;
 
