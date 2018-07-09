@@ -280,42 +280,18 @@ double getDeltaT(string inputname1){
   string line0;
   string line1;
   string line;
-  getline(f0, line0);
+  double acqTot = 0.;
+  double acq0;
   while ( getline(f0, line)){
-    line1=line;
+     std::size_t pos = line.find(")");
+     std::string add0 = line.substr (pos+1, line0.size()-1);
+     acq0 = stod(add0);
+     acqTot += acq0;
+
   }
   f0.close();
 
-  std::size_t pos = line0.find(")");
-  std::string t0 = line0.substr (0, pos);
-  std::string add0 = line0.substr (pos+1, line0.size()-1);
-  double acq0 = stod(add0);
-  pos = line0.find(",");
-  string temp = t0.substr(1,pos);
-  double sec0 = stod(temp);
-  t0 = t0.substr(pos+1);
-  std::tm tm0 = {};
-  strptime(t0.c_str(), " %M, %H, %d, %m, %Y, 0", &tm0);
-  double time0 = std::mktime(&tm0) + sec0;
-  
-  pos = line1.find(")");
-  std::string t1 = line1.substr (0, pos);
-  std::string add1 = line1.substr (pos+1, line1.size()-1);
-  double acq1 = stod(add1);
-  pos = line1.find(",");
-  string temp1 = t1.substr(1,pos);
-  double sec1 = stod(temp1);
-
-  //  cout << sec1 << " " << acq1 << endl;
-  t1 = t1.substr(pos+1);
-  std::tm tm1 = {};
-  strptime(t1.c_str(), " %M, %H, %d, %m, %Y, 0", &tm1);
-  double time1 = std::mktime(&tm1) + sec1 + acq1;
-
-  // cout << time0 << " " << time1 << " " << time1-time0 << endl;
-
-
-  return time1 - time0;
+  return acqTot;
 
 }
 
