@@ -240,10 +240,13 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, s
   c1->Print(Form("%s.pdf", outputc1.c_str()));
 
 
+  int imax = hDeltaT->GetMaximumBin();
+  double timeXcenter = hDeltaT->GetXaxis()->GetBinCenter(imax);
+
   TCanvas *c2 = new TCanvas("c2");
   hDeltaT->Draw("e");
   TF1 *func = new TF1("func", "gaus");
-  hDeltaT->Fit(func);
+  hDeltaT->Fit(func, "r", "", timeXcenter-2e-9, timeXcenter+2e-9);
 
 
   string outputc2 = basename+"_c2";
