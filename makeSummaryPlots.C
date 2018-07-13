@@ -1,20 +1,27 @@
 string base="/unix/dune/tof/";
-string date="2018Jul09";
-string barname="D1719";
+string date="2018Jul12";
+string barname="D1721_swap";
 string POSITIONS[]={"16cm", "32cm", "48cm", "64cm", "80cm", "96cm", "112cm"};
-string THRESHOLDS[]={"5mV", "10mV", "15mV", "20mV", "25mV"};
+string THRESHOLDS[]={"10mV", "15mV", "20mV"};
 int colors []      ={kBlue+1, kCyan+1, kGreen+1, kOrange+1, kRed, kViolet};
-string CHANNELS[]={"Ch2", "Ch3"};
+string CHANNELS[]={"PMTA", "PMTB"};
 string divisions="20mVdiv";
 
+void makeSummaryPlotsCh(int ich);
 
 void makeSummaryPlots(){
+
+  makeSummaryPlotsCh(0);
+  makeSummaryPlotsCh(1);
+
+}
+
+void makeSummaryPlotsCh(int ich){
 
   int npos = sizeof(POSITIONS)/sizeof(POSITIONS[0]);
   int nthresh = sizeof(THRESHOLDS)/sizeof(THRESHOLDS[0]);
   int nch = sizeof(CHANNELS)/sizeof(CHANNELS[0]);
   
-  int ich = 1;
 
   TGraph *gAcqTime[10];
   TGraphErrors *gTimeDifference[10];
@@ -34,7 +41,7 @@ void makeSummaryPlots(){
 
   string baseoutputname =   base + date + "/Bar" + barname + "/Trig" + CHANNELS[ich]  ;
 
-  TLegend *leg = new TLegend(0.7, 0.65, 0.89, 0.89, "Trigger thresholds");
+  TLegend *leg = new TLegend(0.8, 0.75, 0.99, 0.99, "Trigger thresholds");
 
   for (int ithresh=0; ithresh<nthresh; ithresh++){
    
