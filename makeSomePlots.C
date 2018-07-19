@@ -2,13 +2,7 @@
 #include <time.h>
 #include <stdio.h>
 #include "FFTtools.h"
-
-double getDeltaT(string inputname1);
-double getIntegralFromHisto(TGraph *g);
-int findWhichPMT(string barname, string whichPMT[2]);
-int findGains(string whichPMT[2], double gains[2]);
-void zeroGraph(TGraph *g);
-bool qualityCut(int ichan, string sourcePos, double peakA, double peakB, double deltat);
+#include "functions.h"
 
 
 string trigChan[2] = {"Ch3", "Ch4"};
@@ -16,13 +10,25 @@ string chanNice[2] = {"PMTA", "PMTB"};
 
 void makeSomePlots(string base, string date, string barname, string sourcePos, int ichan, string thresh, string div){
 
+  TF2 *fPosEstimator = new TF2("fPosEstimator", "[0]+[1]*( x[0] + x[1]*[2] )", -1e-10, 1e-10, -1, 1);
+  fPosEstimator->FixParameter(0, 64.);
+  fPosEstimator->FixParameter(1, 5e9);
+  fPosEstimator->FixParameter(2, -4.3e-9);
+
+
   string whichPMT[2];
   double gains[2];
+  double calvar[2];
   int foundPMT = findWhichPMT(barname, whichPMT);
   if (foundPMT==0) return;
+  int foundCal = findCalibration(barname, calvar);
+  if (foundCal==0) return;
   int foundGains = findGains(whichPMT, gains);
   if (foundGains==0) return;
 
+
+  double calDeltaT = calvar[0];
+  double calAsymmetry = calvar[1];
 
   //  example file path /unix/dune/tof/2018Jul06/BarD1719/SourceAt64cm/TrigCh3_thres50mV_50mVdiv.ch3.traces.root
   // string base      = "/unix/dune/tof/";
@@ -52,23 +58,30 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
 
   TH1D *hPeak1 = new TH1D ("hPeak1", "", 50, 0, 0.2);
   TH1D *hPeak2 = new TH1D ("hPeak2", "", 50, 0, 0.2);
-  TH1D *hIntegral1 = new TH1D ("hIntegral1", "", 100, 0, 400);
-  TH1D *hIntegral2 = new TH1D ("hIntegral2", "", 100, 0, 400);
-  TH1D *hDifference1 = new TH1D ("hDifference1", "", 100, 0, 400);
-  TH1D *hDifference2 = new TH1D ("hDifference2", "", 100, 0, 400);
+  TH1D *hIntegral1 = new TH1D ("hIntegral1", "", 100, 0, 500);
+  TH1D *hIntegral2 = new TH1D ("hIntegral2", "", 100, 0, 500);
+  TH1D *hDifference1 = new TH1D ("hDifference1", "", 100, 0, 500);
+  TH1D *hDifference2 = new TH1D ("hDifference2", "", 100, 0, 500);
   TH1D *hPeakNoise1 = new TH1D ("hPeakNoise1", "", 50, 0, 0.2);
   TH1D *hPeakNoise2 = new TH1D ("hPeakNoise2", "", 50, 0, 0.2);
-  TH1D *hIntegralNoise1 = new TH1D ("hIntegralNoise1", "", 100, 0, 400);
-  TH1D *hIntegralNoise2 = new TH1D ("hIntegralNoise2", "", 100, 0, 400);
-  TH1D *hDeltaT = new TH1D ("hDeltaT", "", 100, -2e-8, 2e-8);
-  TH1D *hDeltaTsimple = new TH1D("hDeltaTsimple", "", 100, -2e-8, 2e-8);
+  TH1D *hIntegralNoise1 = new TH1D ("hIntegralNoise1", "", 100, 0, 500);
+  TH1D *hIntegralNoise2 = new TH1D ("hIntegralNoise2", "", 100, 0, 500);
+  TH1D *hChargeAsymmetry = new TH1D ("hChargeAsymmetry", "", 100, -1, 1);
+  TH2D *hChargeAsymmetryVSdeltaT = new TH2D ("hChargeAsymmetryVSdeltaT", "", 100, -2e-8, 2e-8, 100, -1, 1);
+  TH1D *hChargeAsymmetry2 = new TH1D ("hChargeAsymmetry2", "", 100, -1, 1);
+  TH2D *hChargeAsymmetryVSdeltaT2 = new TH2D ("hChargeAsymmetryVSdeltaT2", "", 100, -2e-8, 2e-8, 100, -1, 1);
+  TH1D *hDeltaT = new TH1D ("hDeltaT", "", 50, -2e-8, 2e-8);
+  TH1D *hDeltaTsimple = new TH1D("hDeltaTsimple", "", 50, -2e-8, 2e-8);
+  TH1D *hPosResFromDeltaT = new TH1D("hPosResFromDeltaT", "", 100, -40, 40);
+  TH1D *hPosResFromAsymm  = new TH1D("hPosResFromAsymm", "", 100, -40, 40);
+  TH1D *hPosRes = new TH1D("hPosRes", "", 100, -40, 40);
 
 
-  TH2D *hPeakAvsPeakB = new TH2D("hPeakAvsPeakB", "", 50, 0, 400, 50, 0, 400);
-  TH2D *hPeakAvsTimeA = new TH2D("hPeakAvsTimeA", "", 50, 0, 400, 50, -20e-9, 20e-9);
-  TH2D *hPeakBvsTimeB = new TH2D("hPeakBvsTimeB", "", 50, 0, 400, 50, -20e-9, 20e-9);
-  TH2D *hPeakAvsDeltaT = new TH2D("hPeakAvsDeltaT", "", 50, 0, 400, 50, -20e-9, 20e-9);
-  TH2D *hPeakBvsDeltaT = new TH2D("hPeakBvsDeltaT", "", 50, 0, 400, 50, -20e-9, 20e-9);
+  TH2D *hPeakAvsPeakB = new TH2D("hPeakAvsPeakB", "", 50, 0, 500, 50, 0, 500);
+  TH2D *hPeakAvsTimeA = new TH2D("hPeakAvsTimeA", "", 50, 0, 500, 50, -20e-9, 20e-9);
+  TH2D *hPeakBvsTimeB = new TH2D("hPeakBvsTimeB", "", 50, 0, 500, 50, -20e-9, 20e-9);
+  TH2D *hPeakAvsDeltaT = new TH2D("hPeakAvsDeltaT", "", 50, 0, 500, 50, -20e-9, 20e-9);
+  TH2D *hPeakBvsDeltaT = new TH2D("hPeakBvsDeltaT", "", 50, 0, 500, 50, -20e-9, 20e-9);
 
   TH2D *hExpAvsDeltaT = new TH2D("hExpAvsDeltaT", "", 50, -100, 100, 50, -20e-9, 20e-9);
   TH2D *hExpBvsDeltaT = new TH2D("hExpBvsDeltaT", "", 50, -100, 100, 50, -20e-9, 20e-9);
@@ -84,6 +97,11 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   double integralNoise1, integralNoise2;
   double deltat, deltatold;
   double maxTime1, maxTime2;
+  double chargeAsymmetry, chargeAsymmetry2;
+
+  double posFromDeltaT, posFromAsymm, posFromAsymm2, pos;
+
+  double expectedPos =  stod(sourcePos.substr (0, sourcePos.size()-2));
 
   TFile *f1signal  = new TFile ((inputname1+".root").c_str(), "read");
   TFile *f2signal  = new TFile ((inputname2+".root").c_str(), "read");
@@ -116,22 +134,41 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   
      maxTime1 = g1->GetX()[TMath::LocMin(g1->GetN(), g1->GetY())] ;
      maxTime2 = g2->GetX()[TMath::LocMin(g2->GetN(), g2->GetY())] ;
-     deltatold = maxTime1 - maxTime2;
+     deltatold = maxTime1 - maxTime2 - calDeltaT;
 
   
      
-     TGraph *gCor = FFTtools::getInterpolatedCorrelationGraph(g1, g2, (1/2.6)*1e-9);
+     TGraph *gCor = FFTtools::getCorrelationGraph(g1, g2);
      double *x = gCor->GetX();
      double *y = gCor->GetY();
      int ntot = gCor->GetN();
-     deltat = x[TMath::LocMax(ntot, y)];
+     deltat = x[TMath::LocMax(ntot, y)] - calDeltaT;
+     chargeAsymmetry = (numPhotoEle1-numPhotoEle2)/(numPhotoEle1+numPhotoEle2) - calAsymmetry;
+     chargeAsymmetry2 = (integral1-integral2)/(integral1+integral2);
      
-     if (qualityCut(ichan, sourcePos, numPhotoEle1, numPhotoEle2, deltat)) continue;
+     posFromDeltaT = getPositionFromDeltaT(deltat);
+     posFromAsymm = getPositionFromAsymmetry(chargeAsymmetry);
+     posFromAsymm2 = getPositionFromAsymmetry(chargeAsymmetry2);
+     pos = fPosEstimator->Eval(deltat, chargeAsymmetry);
+
+     //     if (qualityCut(ichan, sourcePos, numPhotoEle1, numPhotoEle2, deltat)) continue;
 
      //     deltat = x[TMath::LocMax(ntot, y)];
      //     cout << igraph << " " << deltat << " " << x[TMath::LocMax(ntot, y)] << " " << deltat - x[TMath::LocMax(ntot, y)] << endl;
      hDeltaT->Fill(deltat);
   
+
+     hChargeAsymmetry->Fill(chargeAsymmetry);
+     hChargeAsymmetryVSdeltaT->Fill(deltat, chargeAsymmetry);
+     hChargeAsymmetry2->Fill(chargeAsymmetry2);
+     hChargeAsymmetryVSdeltaT2->Fill(deltat, chargeAsymmetry2);
+
+     hPosResFromDeltaT->Fill(posFromDeltaT-expectedPos);
+     hPosResFromAsymm->Fill(posFromAsymm-expectedPos);
+     hPosRes->Fill(pos - expectedPos);
+     //     cout << expectedPos << " " << posFromAsymm << " " << posFromDeltaT << " " << pos << endl;
+
+
      hIntegral1->Fill(numPhotoEle1);
      hIntegral2->Fill(numPhotoEle2);
      hDifference1->Fill(numPhotoEle1);
@@ -186,7 +223,7 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
     numPhotoEle1 = integralNoise1/(gains[0]*R*electron);
     numPhotoEle2 = integralNoise2/(gains[1]*R*electron);
     
-    TGraph *gCor = FFTtools::getInterpolatedCorrelationGraph(g1n, g2n, (1/2.6)*1e-9);
+    TGraph *gCor = FFTtools::getCorrelationGraph(g1n, g2n);
     double *x = gCor->GetX();
     double *y = gCor->GetY();
     int ntot = gCor->GetN();
@@ -219,7 +256,7 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   
   cout << "Delta T source and noise : " << deltaTsource << " " << deltaTnoise << endl;
 
-  double scale = deltaTsource/deltaTnoise;
+  double scale = 0.; // deltaTsource/deltaTnoise;
 
   hPeakNoise1->Scale(scale);
   hPeakNoise2->Scale(scale);
@@ -275,6 +312,10 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   hIntegralNoise1->Write("hIntegralNoiseA");
   hIntegralNoise2->Write("hIntegralNoiseB");
   hDeltaT->Write("hDeltaT");
+  hChargeAsymmetry->Write("hChargeAsymmetry");
+  hChargeAsymmetryVSdeltaT->Write("hChargeAsymmetryVSdeltaT");
+  hChargeAsymmetry2->Write("hChargeAsymmetry2");
+  hChargeAsymmetryVSdeltaT2->Write("hChargeAsymmetryVSdeltaT2");
 
   hDifference1->Write("hDifferenceA");
   hDifference2->Write("hDifferenceB");
@@ -321,16 +362,29 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   int imax = hDeltaT->GetMaximumBin();
   double timeXcenter = hDeltaT->GetXaxis()->GetBinCenter(imax);
 
-  TCanvas *c2 = new TCanvas("c2");
+  TCanvas *c2 = new TCanvas("c2", "", 1200, 500);
+  c2->Divide(2,1);
+  c2->cd(1);
   hDeltaT->Draw("e");
   TF1 *func = new TF1("func", "gaus");
-  hDeltaT->Fit(func, "r", "", timeXcenter-4e-9, timeXcenter+4e-9);
+  hDeltaT->Fit(func);
 
   hDeltaTsimple->SetLineColor(kRed);
   hDeltaTsimple->Draw("e same");
 
   string outputc2 = basename+"_c2";
   
+  c2->cd(2);
+  hChargeAsymmetry->SetTitle(Form("%s;Charge Asymmetry;Entries", titleStr.c_str()));
+  hChargeAsymmetry->SetLineWidth(2);
+  hChargeAsymmetry->Draw("e");
+  TF1 *func2 = new TF1("func2", "gaus");
+  hChargeAsymmetry->Fit(func2);
+
+  hChargeAsymmetry2->SetLineWidth(2);
+  hChargeAsymmetry2->SetLineColor(kRed);
+  hChargeAsymmetry2->Draw("e same");
+
   c2->Write("c2");
 
   c2->Print(Form("%s.png", outputc2.c_str()));
@@ -361,11 +415,51 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   hExpBvsDeltaT->Draw("colz");
   c4->cd(3);
   hPeakAvsPeakB->Draw("colz");
+  c4->cd(4);
+  hChargeAsymmetryVSdeltaT->Draw("colz");
 
   string outputc4 = basename+"_c4";
 
   c4->Print(Form("%s.png", outputc4.c_str()));
   c4->Print(Form("%s.pdf", outputc4.c_str()));
+
+
+  TCanvas *c5 = new TCanvas ("c5");
+  hPosRes->SetTitle("Position resolution;Position resolution [cm];Entries");
+  hPosResFromDeltaT->SetLineColor(kBlue);
+  hPosResFromAsymm->SetLineColor(kRed);
+  hPosRes->SetLineColor(kBlack);
+
+  hPosResFromDeltaT->SetLineWidth(2);
+  hPosResFromAsymm->SetLineWidth(2);
+  hPosRes->SetLineWidth(2);
+
+
+  double ymax1 = hPosRes->GetMaximum();
+  double ymax2 = hPosResFromDeltaT->GetMaximum();
+  double ymax3 = hPosResFromAsymm->GetMaximum();
+
+  double allymax = ymax1 > ymax2 ? ymax1 : ymax2;
+  allymax        = ymax3 > allymax ? ymax3 : allymax;
+
+  hPosRes->SetMaximum(allymax);
+
+  hPosRes->Draw("histo");
+  hPosResFromDeltaT->Draw("histo same");
+  hPosResFromAsymm->Draw("histo same");
+
+  string outputc5 = basename+"_c5";
+
+  TLegend *legres = new TLegend(0.6, 0.7, 0.89, 0.89);
+  legres->AddEntry(hPosResFromDeltaT, "From time difference", "l");
+  legres->AddEntry(hPosResFromAsymm,  "From charge asymmetry", "l");
+  legres->AddEntry(hPosRes,  "From fitted surface", "l");
+  legres->Draw();
+
+
+  c5->Print(Form("%s.png", outputc5.c_str()));
+  c5->Print(Form("%s.pdf", outputc5.c_str()));
+
 
   fout->Close();
   cout << outputname << endl;
@@ -382,6 +476,8 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   myfile << func->GetParameter(1) << " " << func->GetParError(1) << " " << func->GetParameter(2) << " " << func->GetParError(2) << "\n";
   myfile << "Photo-electrons mean and RMS for PMT A and B: \n";
   myfile << hDifference1->GetMean() << " " << hDifference1->GetRMS() << " " << hDifference2->GetMean() << " " << hDifference2->GetRMS() << "\n";
+  myfile << "Charge Asymmetry Parameters: \n";
+  myfile << func2->GetParameter(1) << " " << func2->GetParError(1) << " " << func2->GetParameter(2) << " " << func2->GetParError(2) << "\n";
   myfile.close();
 
   delete hPeak1;
@@ -390,12 +486,20 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   delete hPeakNoise2;
   delete hDeltaT;
   delete hDeltaTsimple;
+  delete hChargeAsymmetry;
+  delete hChargeAsymmetryVSdeltaT;
+  delete hChargeAsymmetry2;
+  delete hChargeAsymmetryVSdeltaT2;
   delete hIntegral1;
   delete hIntegral2;
   delete hIntegralNoise1;
   delete hIntegralNoise2;
   delete hDifference1;
   delete hDifference2;
+  delete hPosResFromDeltaT;
+  delete hPosResFromAsymm;
+  delete hPosRes;
+
 
   delete hPeakAvsPeakB ;
   delete hPeakAvsTimeA ;
@@ -408,179 +512,3 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
 
 }
 
-
-bool qualityCut(int ichan, string sourcePos, double peakA, double peakB, double deltat){
-
-  int length = stoi(sourcePos.substr (0, sourcePos.size()-2))+6;
-  int barlength = 140;
-  double c = 3.e8/1.6;
-  // Add 2 ns to deltat expected to account for difference in cable lengths
-  double deltaTexpected = (length - (barlength - length))*0.01/c - 4.5E-9;
-  double mindeltat = deltaTexpected - 2e-9;
-  double maxdeltat = deltaTexpected + 2e-9;
-  double expectedPeakFraction = (barlength-length)*1.0/length;
-  double minPeak = expectedPeakFraction*0.75;
-  double maxPeak = expectedPeakFraction*1.25;
-  
-  bool cut = false;
-
-  
-  //  cout << deltaTexpected << endl;
-
-  if ( ( peakA/peakB<minPeak  || peakA/peakB>maxPeak) &&
-       (deltat < mindeltat || deltat>maxdeltat) )  cut = true;
-  
-  
-
-  return cut;
-}
-
-double getDeltaT(string inputname1){
-  
-  ifstream f0 (Form("%s.times", inputname1.c_str()));
-  string line;
-  double acqTot = 0.;
-  double acq0;
-  while ( getline(f0, line)){
-     std::size_t pos = line.find(")");
-     std::string add0 = line.substr (pos+1, line.size()-1);
-     acq0 = stod(add0);
-     acqTot += acq0;
-     //     cout << add0 << " " << line << endl;
-  }
-  f0.close();
-
-  return acqTot;
-
-}
-
-
-double getIntegralFromHisto(TGraph *g){
-
-  double *x = g->GetX();
-  double *y = g->GetY();
-  int N = g->GetN();
-  TH1D *h = new TH1D("h", "", 1000, x[0], x[N-1]);
-  double integral=0;
-  for (int i=N*0; i<N; i++){
-
-    //  integral+=y[i];
-    h->Fill(x[i], -y[i]);
-  }
-
-  integral = h->Integral("width");
-  
-  delete h;
-
-  return integral;
-}
-
-
-int findWhichPMT(string barname, string whichPMT[2]){
-
-  ifstream f0 ("barToPMTmap.txt");
-  string line;
-  string thisbar;
-  while ( getline(f0, line)){
-    stringstream ss(line);
-    ss >> thisbar;
-    if (thisbar==barname){
-      ss >> whichPMT[0];
-      ss >> whichPMT[1];
-      cout << "Processing bar " << barname << endl;
-      cout << "PMT A is " << whichPMT[0] << endl;
-      cout << "PMT B is " << whichPMT[1] << endl;
-      f0.close();
-      return 1;
-    }
-
-  }
-
-  cout << "I can't recognise bar " << barname << endl;
-
-  return 0;
-}
-
-
-int findGains(string whichPMT[2], double gains[2]){
-
-  ifstream f0 ("PMTtoGainMap.txt");
-  string line;
-  string linePMT[2];
-  string temp;
-  string thispmt;
-  bool found[2];
-  found[0] = false;
-  found[1] = false;
-
-  getline(f0, line);
-
-  while ( getline(f0, line)){
-    stringstream ss(line);
-    ss >> thispmt;
-    //    cout << thispmt << " " << whichPMT[0] << " " << whichPMT[1] << endl;
-    for (int i=0; i<2; i++){
-      if (thispmt==whichPMT[i]){
-	linePMT[i] = line;
-	ss >> temp;
-	gains[i] = stod(temp);
-      }
-    }
-    
-  }
-  f0.close();
-
-  double voltage1, voltage2;
-  double gainp0, gainerr0, gainp1, gainerr1;
-  for (int i=0; i<2; i++){
-    stringstream ss(linePMT[i]);
-    ss >> thispmt >> voltage1 >> gains[i] >> voltage2;
-    cout << thispmt << " " << voltage1 << " " << voltage2 << endl;
-    if (voltage1!=voltage2){
-      if (voltage2==0){
-	cout << "You need to write the voltages used for PMT " << thispmt << endl;
-	return 0;
-      }
-      
-      ifstream f1("PMTtoGainParameterization.txt");      
-      getline(f1, line);
-      while ( getline(f1, line)){
-	stringstream ss1(line);
-	ss1 >> thispmt;
-	if (thispmt==whichPMT[i]){
-	  ss1 >> gainp0 >> gainerr0 >> gainp1 >> gainerr1;
-	  gains[i] = gainp0*TMath::Power(voltage2, gainp1);
-	  found[i] = true;	  
-	}	
-      }
-      
-      f1.close();
-    } else {
-      found[i] = true;
-    }
-  }
-
-  if (found[0]==found[1]==true){
-    cout << "PMT A gain: " << gains[0] << endl;
-    cout << "PMT B gain: " << gains[1] << endl;
-    return 1;
-  }
-
-  cout << "I can't recognise one of these PMTs " << whichPMT[0] << " or " << whichPMT[1] << endl;
-
-  return 0;
-
-}
-
-
-void zeroGraph(TGraph *g){
-
-  double *y = g->GetY();
-  double mean = 0;
-  int ntot = 200;
-
-  for (int i=0; i<ntot; i++) mean+= y[i]/ntot;
-
-  for (int i=0; i<g->GetN(); i++) g->GetY()[i]-=mean;			       
-
-}

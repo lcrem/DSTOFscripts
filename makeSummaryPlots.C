@@ -1,6 +1,6 @@
 string base="/unix/dune/tof/";
-string date="2018Jul12";
-string barname="D1721_swap";
+string date="2018Jul19";
+string barname="D1720";
 string POSITIONS[]={"16cm", "32cm", "48cm", "64cm", "80cm", "96cm", "112cm"};
 string THRESHOLDS[]={"10mV", "15mV", "20mV"};
 int colors []      ={kBlue+1, kCyan+1, kGreen+1, kOrange+1, kRed, kViolet};
@@ -26,6 +26,8 @@ void makeSummaryPlotsCh(int ich){
   TGraph *gAcqTime[10];
   TGraphErrors *gTimeDifference[10];
   TGraphErrors *gTimeResolution[10];
+  TGraphErrors *gAsymmetryPeak[10];
+  TGraphErrors *gAsymmetryWidth[10];
   TGraphErrors *gPEdistPMTA[10];
   TGraphErrors *gPEdistPMTB[10];
 
@@ -35,6 +37,7 @@ void makeSummaryPlotsCh(int ich){
   double timesource, timecosmics, maxtime;
   maxtime=0;
   double resmean[10], resmeanerr[10], resrms[10], resrmserr[10];
+  double asymean[10], asymeanerr[10], asyrms[10], asyrmserr[10];
   double pemeanA[10], permsA[10], pemeanB[10], permsB[10];
   double maxpeA, maxpeB;
   maxpeA=maxpeB=0;
@@ -77,6 +80,11 @@ void makeSummaryPlotsCh(int ich){
       if (pemeanA[ipos]>maxpeA) maxpeA = pemeanA[ipos];
       if (pemeanB[ipos]>maxpeB) maxpeB = pemeanB[ipos];
 
+      getline(f0, line);
+      getline(f0, line);
+      stringstream ss3(line);
+      ss3 >> asymean[ipos] >> asymeanerr[ipos] >> asyrms[ipos] >> asyrmserr[ipos];
+
       f0.close();
 
 
@@ -94,6 +102,14 @@ void makeSummaryPlotsCh(int ich){
     gTimeResolution[ithresh] = new TGraphErrors(npos, x, resrms, xerr, resrmserr);
     gTimeResolution[ithresh]->SetLineColor(colors[ithresh]);
     gTimeResolution[ithresh]->SetLineWidth(2);
+
+    gAsymmetryPeak[ithresh] = new TGraphErrors(npos, x, asymean, xerr, asymeanerr);
+    gAsymmetryPeak[ithresh]->SetLineColor(colors[ithresh]);
+    gAsymmetryPeak[ithresh]->SetLineWidth(2);
+
+    gAsymmetryWidth[ithresh] = new TGraphErrors(npos, x, asyrms, xerr, asyrmserr);
+    gAsymmetryWidth[ithresh]->SetLineColor(colors[ithresh]);
+    gAsymmetryWidth[ithresh]->SetLineWidth(2);
 
     gPEdistPMTA[ithresh] = new TGraphErrors(npos, x, pemeanA, xerr, permsA);
     gPEdistPMTA[ithresh]->SetLineColor(colors[ithresh]);
@@ -134,6 +150,7 @@ void makeSummaryPlotsCh(int ich){
     } else {
       gTimeDifference[ithresh]->Draw("l");
     }
+    gTimeDifference[ithresh]->Fit("pol1");
   }
   leg->Draw();
   cTimeDifference->Print((baseoutputname+"_timeDifference.png").c_str());
@@ -155,6 +172,40 @@ void makeSummaryPlotsCh(int ich){
   leg->Draw();
   cTimeResolution->Print((baseoutputname+"_timeResolution.png").c_str());
   cTimeResolution->Print((baseoutputname+"_timeResolution.pdf").c_str());
+
+ TCanvas *cAsymmetryPeak = new TCanvas("cAsymmetryPeak");
+ 
+  for (int ithresh=0; ithresh<nthresh; ithresh++){
+    if (ithresh==0){
+      gAsymmetryPeak[ithresh]->SetMinimum(-1);
+      gAsymmetryPeak[ithresh]->SetMaximum(+1);
+      gAsymmetryPeak[ithresh]->SetTitle(Form("Bar %s, triggering on %s;Source distance [cm];Charge asymmetry peak", barname.c_str(), CHANNELS[ich].c_str()));
+      gAsymmetryPeak[ithresh]->Draw("Al");
+    } else {
+      gAsymmetryPeak[ithresh]->Draw("l");
+    }
+    gAsymmetryPeak[ithresh]->Fit("pol1");
+  }
+  leg->Draw();
+  cAsymmetryPeak->Print((baseoutputname+"_asymmetryPeak.png").c_str());
+  cAsymmetryPeak->Print((baseoutputname+"_asymmetryPeak.pdf").c_str());
+
+
+ TCanvas *cAsymmetryWidth = new TCanvas("cAsymmetryWidth");
+ 
+  for (int ithresh=0; ithresh<nthresh; ithresh++){
+    if (ithresh==0){
+      gAsymmetryWidth[ithresh]->SetMinimum(0);
+      gAsymmetryWidth[ithresh]->SetMaximum(0.5);
+      gAsymmetryWidth[ithresh]->SetTitle(Form("Bar %s, triggering on %s;Source distance [cm];Charge asymmetry width", barname.c_str(), CHANNELS[ich].c_str()));
+      gAsymmetryWidth[ithresh]->Draw("Al");
+    } else {
+      gAsymmetryWidth[ithresh]->Draw("l");
+    }
+  }
+  leg->Draw();
+  cAsymmetryWidth->Print((baseoutputname+"_asymmetryWidth.png").c_str());
+  cAsymmetryWidth->Print((baseoutputname+"_asymmetryWidth.pdf").c_str());
 
 
   TCanvas *cPEpmtA = new TCanvas("cPEpmtA");
