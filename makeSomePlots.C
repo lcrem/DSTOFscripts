@@ -6,6 +6,7 @@
 
 
 string trigChan[2] = {"Ch3", "Ch4"};
+//string trigChan[2] = {"Ch2", "Ch3"};
 string chanNice[2] = {"PMTA", "PMTB"};
 
 void makeSomePlots(string base, string date, string barname, string sourcePos, int ichan, string thresh, string div){
@@ -15,6 +16,10 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   fPosEstimator->FixParameter(1, 5e9);
   fPosEstimator->FixParameter(2, -4.3e-9);
 
+  TF2 *fPosEstimator2 = new TF2("fPosEstimator2", "[0]+[1]*( x[0] + x[1]*[2] )", -1e-10, 1e-10, -1, 1);
+  fPosEstimator2->FixParameter(0, 64.);
+  fPosEstimator2->FixParameter(1, 5e9);
+  fPosEstimator2->FixParameter(2, -5.21e-9);
 
   string whichPMT[2];
   double gains[2];
@@ -74,7 +79,9 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   TH1D *hDeltaTsimple = new TH1D("hDeltaTsimple", "", 50, -2e-8, 2e-8);
   TH1D *hPosResFromDeltaT = new TH1D("hPosResFromDeltaT", "", 100, -40, 40);
   TH1D *hPosResFromAsymm  = new TH1D("hPosResFromAsymm", "", 100, -40, 40);
+  TH1D *hPosResFromAsymm2  = new TH1D("hPosResFromAsymm2", "", 100, -40, 40);
   TH1D *hPosRes = new TH1D("hPosRes", "", 100, -40, 40);
+  TH1D *hPosRes2 = new TH1D("hPosRes2", "", 100, -40, 40);
 
 
   TH2D *hPeakAvsPeakB = new TH2D("hPeakAvsPeakB", "", 50, 0, 500, 50, 0, 500);
@@ -99,7 +106,7 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   double maxTime1, maxTime2;
   double chargeAsymmetry, chargeAsymmetry2;
 
-  double posFromDeltaT, posFromAsymm, posFromAsymm2, pos;
+  double posFromDeltaT, posFromAsymm, posFromAsymm2, posEstim, posEstim2;
 
   double expectedPos =  stod(sourcePos.substr (0, sourcePos.size()-2));
 
@@ -149,9 +156,10 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
      posFromDeltaT = getPositionFromDeltaT(deltat);
      posFromAsymm = getPositionFromAsymmetry(chargeAsymmetry);
      posFromAsymm2 = getPositionFromAsymmetry(chargeAsymmetry2);
-     pos = fPosEstimator->Eval(deltat, chargeAsymmetry);
+     posEstim = fPosEstimator->Eval(deltat, chargeAsymmetry);
+     posEstim2 = fPosEstimator2->Eval(deltat, chargeAsymmetry2);
 
-     //     if (qualityCut(ichan, sourcePos, numPhotoEle1, numPhotoEle2, deltat)) continue;
+     if (qualityCut(ichan, sourcePos, numPhotoEle1, numPhotoEle2, deltat)) continue;
 
      //     deltat = x[TMath::LocMax(ntot, y)];
      //     cout << igraph << " " << deltat << " " << x[TMath::LocMax(ntot, y)] << " " << deltat - x[TMath::LocMax(ntot, y)] << endl;
@@ -165,7 +173,9 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
 
      hPosResFromDeltaT->Fill(posFromDeltaT-expectedPos);
      hPosResFromAsymm->Fill(posFromAsymm-expectedPos);
-     hPosRes->Fill(pos - expectedPos);
+     hPosResFromAsymm2->Fill(posFromAsymm2-expectedPos);
+     hPosRes->Fill(posEstim - expectedPos);
+     hPosRes2->Fill(posEstim2 - expectedPos);
      //     cout << expectedPos << " " << posFromAsymm << " " << posFromDeltaT << " " << pos << endl;
 
 
@@ -204,45 +214,45 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
    }
 
 
-   for (int igraph=1; igraph<=ngraph; igraph++){
+   // for (int igraph=1; igraph<=ngraph; igraph++){
 
-    TGraph *g1n = (TGraph*)f1noise->Get(Form("graph%d", igraph));
-    if (!g1n){
-      continue;
-    }
-    min1 = TMath::MinElement(g1n->GetN(), g1n->GetY());
+   //  TGraph *g1n = (TGraph*)f1noise->Get(Form("graph%d", igraph));
+   //  if (!g1n){
+   //    continue;
+   //  }
+   //  min1 = TMath::MinElement(g1n->GetN(), g1n->GetY());
 
-    TGraph *g2n = (TGraph*)f2noise->Get(Form("graph%d", igraph));
-    if (!g2n){
-      continue;
-    }
-    min2 = TMath::MinElement(g2n->GetN(), g2n->GetY());
+   //  TGraph *g2n = (TGraph*)f2noise->Get(Form("graph%d", igraph));
+   //  if (!g2n){
+   //    continue;
+   //  }
+   //  min2 = TMath::MinElement(g2n->GetN(), g2n->GetY());
 
-    integralNoise1 = getIntegralFromHisto(g1n);
-    integralNoise2 = getIntegralFromHisto(g2n);
-    numPhotoEle1 = integralNoise1/(gains[0]*R*electron);
-    numPhotoEle2 = integralNoise2/(gains[1]*R*electron);
+   //  integralNoise1 = getIntegralFromHisto(g1n);
+   //  integralNoise2 = getIntegralFromHisto(g2n);
+   //  numPhotoEle1 = integralNoise1/(gains[0]*R*electron);
+   //  numPhotoEle2 = integralNoise2/(gains[1]*R*electron);
     
-    TGraph *gCor = FFTtools::getCorrelationGraph(g1n, g2n);
-    double *x = gCor->GetX();
-    double *y = gCor->GetY();
-    int ntot = gCor->GetN();
-    deltat = x[TMath::LocMax(ntot, y)];
+   //  TGraph *gCor = FFTtools::getCorrelationGraph(g1n, g2n);
+   //  double *x = gCor->GetX();
+   //  double *y = gCor->GetY();
+   //  int ntot = gCor->GetN();
+   //  deltat = x[TMath::LocMax(ntot, y)];
     
-    if (qualityCut(ichan, sourcePos, numPhotoEle1, numPhotoEle2, deltat)) continue;
+   //  if (qualityCut(ichan, sourcePos, numPhotoEle1, numPhotoEle2, deltat)) continue;
     
     
-    hPeakNoise1->Fill(TMath::Abs(min1));
-    hPeakNoise2->Fill(TMath::Abs(min2));
+   //  hPeakNoise1->Fill(TMath::Abs(min1));
+   //  hPeakNoise2->Fill(TMath::Abs(min2));
 
-    hIntegralNoise1->Fill(numPhotoEle1);
-    hIntegralNoise2->Fill(numPhotoEle2);
+   //  hIntegralNoise1->Fill(numPhotoEle1);
+   //  hIntegralNoise2->Fill(numPhotoEle2);
 
-    delete g1n;
-    delete g2n;
-    delete gCor;
+   //  delete g1n;
+   //  delete g2n;
+   //  delete gCor;
 
-   }
+   // }
 
   f1signal->Close();
   f2signal->Close();
@@ -335,6 +345,12 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   hExpAvsDeltaT->Write("hExpAvsDeltaT");
   hExpBvsDeltaT->Write("hExpBvsDeltaT");
 
+  hPosResFromDeltaT->Write("hPosResFromDeltaT");
+  hPosResFromAsymm->Write("hPosResFromAsymm");
+  hPosResFromAsymm2->Write("hPosResFromAsymm2");
+  hPosRes->Write("hPosRes");
+  hPosRes2->Write("hPosRes2");
+
   gStyle->SetOptStat(0);
 
   TCanvas *c1 = new TCanvas("c1", "", 1200, 800);
@@ -424,15 +440,20 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   c4->Print(Form("%s.pdf", outputc4.c_str()));
 
 
-  TCanvas *c5 = new TCanvas ("c5");
+  TCanvas *c5 = new TCanvas ("c5", "", 1200, 800);
+  c5->Divide(2,1);
+  c5->cd(1);
   hPosRes->SetTitle("Position resolution;Position resolution [cm];Entries");
-  hPosResFromDeltaT->SetLineColor(kBlue);
-  hPosResFromAsymm->SetLineColor(kRed);
-  hPosRes->SetLineColor(kBlack);
+  hPosResFromDeltaT->SetTitle("Position resolution;Position resolution [cm];Entries");
+  hPosResFromDeltaT->SetLineColor(kBlack);
+  hPosResFromAsymm->SetLineColor(kBlue);
+  hPosResFromAsymm2->SetLineColor(kRed);
 
   hPosResFromDeltaT->SetLineWidth(2);
   hPosResFromAsymm->SetLineWidth(2);
   hPosRes->SetLineWidth(2);
+  hPosResFromAsymm2->SetLineWidth(2);
+  hPosRes2->SetLineWidth(2);
 
 
   double ymax1 = hPosRes->GetMaximum();
@@ -443,23 +464,47 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   allymax        = ymax3 > allymax ? ymax3 : allymax;
 
   hPosRes->SetMaximum(allymax);
+  hPosResFromDeltaT->SetMaximum(allymax);
 
-  hPosRes->Draw("histo");
-  hPosResFromDeltaT->Draw("histo same");
+  hPosResFromDeltaT->Draw("histo");
   hPosResFromAsymm->Draw("histo same");
+  hPosResFromAsymm2->Draw("histo same");
+  
 
-  string outputc5 = basename+"_c5";
-
-  TLegend *legres = new TLegend(0.6, 0.7, 0.89, 0.89);
+  TLegend *legres = new TLegend(0.5, 0.7, 0.89, 0.89);
   legres->AddEntry(hPosResFromDeltaT, "From time difference", "l");
-  legres->AddEntry(hPosResFromAsymm,  "From charge asymmetry", "l");
-  legres->AddEntry(hPosRes,  "From fitted surface", "l");
+  legres->AddEntry(hPosResFromAsymm,  "From pe asymmetry", "l");
+  legres->AddEntry(hPosResFromAsymm2, "From integral asymmetry", "l");
   legres->Draw();
 
+  c5->cd(2);
+  hPosRes2->SetLineColor(kRed);
 
+  gStyle->SetOptFit(1);
+  hPosRes->Draw("histo");
+  hPosRes->Fit("gaus", "sames");
+  
+  hPosRes2->Draw("histo sames");
+  hPosRes2->Fit("gaus", "sames");
+
+  // TPaveStats *st = (TPaveStats*)hPosRes2->FindObject("fitstats");
+  // st->SetY1NDC(0.3);
+  // st->SetY2NDC(0.6);
+  // st->SetLineColor(kRed);
+
+  c5->Update();
+
+  TLegend *legres2 = new TLegend(0.11, 0.7, 0.5, 0.89);
+  legres2->AddEntry(hPosRes, "Estimator (pe, dt)", "l");
+  legres2->AddEntry(hPosRes2, "Estimator (integral, dt)", "l");
+  legres2->Draw();
+
+
+  string outputc5 = basename+"_c5";
   c5->Print(Form("%s.png", outputc5.c_str()));
   c5->Print(Form("%s.pdf", outputc5.c_str()));
 
+  c5->Write("c5");
 
   fout->Close();
   cout << outputname << endl;
@@ -498,7 +543,9 @@ void makeSomePlots(string base, string date, string barname, string sourcePos, i
   delete hDifference2;
   delete hPosResFromDeltaT;
   delete hPosResFromAsymm;
+  delete hPosResFromAsymm2;
   delete hPosRes;
+  delete hPosRes2;
 
 
   delete hPeakAvsPeakB ;

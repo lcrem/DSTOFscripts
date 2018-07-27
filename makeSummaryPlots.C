@@ -1,6 +1,6 @@
 string base="/unix/dune/tof/";
-string date="2018Jul19";
-string barname="D1720";
+string date="2018Jul10";
+string barname="D1721";
 string POSITIONS[]={"16cm", "32cm", "48cm", "64cm", "80cm", "96cm", "112cm"};
 string THRESHOLDS[]={"10mV", "15mV", "20mV"};
 int colors []      ={kBlue+1, kCyan+1, kGreen+1, kOrange+1, kRed, kViolet};

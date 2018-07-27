@@ -4,14 +4,16 @@
 #include "FFTtools.h"
 #include "functions.h"
 
-string trigChan[2] = {"Ch3", "Ch4"};
+//string trigChan[2] = {"Ch3", "Ch4"};
+string trigChan[2] = {"Ch2", "Ch3"};
 string chanNice[2] = {"PMTA", "PMTB"};
-string thresholds[3] = {"10mV", "15mV", "20mV"};
+string thresholds[] = {"10mV", "15mV", "20mV"};
+//string thresholds[] = {"40mV", "50mV"};
 
 void findCalibrationNumbers(string base, string date, string barname, string div){
 
   string sourcePos = "64cm";
-  
+  int nthresh = sizeof(thresholds)/sizeof(thresholds[0]);
 
   string whichPMT[2];
   double gains[2];
@@ -37,11 +39,11 @@ void findCalibrationNumbers(string base, string date, string barname, string div
 
   for (int ichan=0; ichan<2; ichan++){
 
-    for (int ithresh=0; ithresh<3; ithresh++){
+    for (int ithresh=0; ithresh<nthresh; ithresh++){
 
 
-      string inputname1 = base + date + "/Bar" + barname + "/SourceAt" + sourcePos + "/Trig" + trigChan[ichan] + "_thres" + thresholds[ithresh] + "_" + div + ".ch3.traces";
-      string inputname2 = base + date + "/Bar" + barname + "/SourceAt" + sourcePos + "/Trig" + trigChan[ichan] + "_thres" + thresholds[ithresh] + "_" + div + ".ch4.traces";
+      string inputname1 = base + date + "/Bar" + barname + "/SourceAt" + sourcePos + "/Trig" + trigChan[ichan] + "_thres" + thresholds[ithresh] + "_" + div + ".ch2.traces";
+      string inputname2 = base + date + "/Bar" + barname + "/SourceAt" + sourcePos + "/Trig" + trigChan[ichan] + "_thres" + thresholds[ithresh] + "_" + div + ".ch3.traces";
 
       cout << inputname1 << endl;
       cout << inputname2 << endl;
